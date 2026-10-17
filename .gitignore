@@ -21,3 +21,7 @@ __pycache__/
 *.joblib
 logs/
 *.log
+
+# Local research datasets
+data/raw/
+data/processed/
