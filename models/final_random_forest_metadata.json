@@ -1,0 +1,37 @@
+{
+    "model": "frozen_random_forest",
+    "training_rows": 14987,
+    "feature_count": 15,
+    "features": [
+        "frequency_180d",
+        "monetary_180d",
+        "quantity_180d",
+        "active_days_180d",
+        "unique_products_180d",
+        "recency_days",
+        "tenure_180d",
+        "avg_order_value_180d",
+        "orders_30d",
+        "spend_30d",
+        "orders_90d",
+        "spend_90d",
+        "spend_share_30d",
+        "has_repeat_purchase_day_180d",
+        "avg_repeat_gap_days_180d"
+    ],
+    "parameters": {
+        "n_estimators": 200,
+        "max_depth": 6,
+        "min_samples_leaf": 5,
+        "max_features": "sqrt",
+        "random_state": 42,
+        "n_jobs": 4
+    },
+    "positive_class": 1,
+    "dataset_sha256": "8847fe947742cd79a00bb26fa4114a8dd1f7dbac5241a7863596bc6649ea690b",
+    "artifact_sha256": "3c23f5a3132264a08486a7c8955d63b89ff4708e99c3abba4145daacc58fc3cc",
+    "python_version": "3.12.10",
+    "sklearn_version": "1.9.1",
+    "joblib_version": "1.6.0",
+    "held_out_test_used_for_training": false
+}
