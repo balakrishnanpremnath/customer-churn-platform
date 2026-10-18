@@ -28,6 +28,7 @@ def purchase(customer, invoice, timestamp, revenue=10):
         "purchase_date": timestamp.normalize(),
         "quantity": 1,
         "line_revenue": revenue,
+        "stock_code": "TEST-SKU",
     }
 
 
@@ -138,3 +139,39 @@ def test_expected_split_counts():
     assert counts["train"] == 12328
     assert counts["validation"] == 2659
     assert counts["test"] == 2772
+
+def test_advanced_feature_integrity():
+    df = pd.read_csv(DATASET)
+
+    required = {
+        "unique_products_180d",
+        "avg_order_value_180d",
+        "tenure_180d",
+        "orders_30d",
+        "orders_90d",
+        "spend_30d",
+        "spend_90d",
+        "spend_share_30d",
+        "has_repeat_purchase_day_180d",
+        "avg_repeat_gap_days_180d",
+    }
+
+    assert required.issubset(df.columns)
+
+    assert (
+        df["orders_30d"] <= df["orders_90d"]
+    ).all()
+
+    assert (
+        df["orders_90d"] <= df["frequency_180d"]
+    ).all()
+
+    assert df["spend_share_30d"].between(
+        0, 1.000001
+    ).all()
+
+    assert (
+        df["tenure_180d"] >= df["recency_days"]
+    ).all()
+
+    assert not df[list(required)].isna().any().any()

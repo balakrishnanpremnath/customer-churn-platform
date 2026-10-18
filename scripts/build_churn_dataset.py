@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from scripts.customer_features import build_customer_features
+
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "data" / "processed" / "purchases_clean.csv"
@@ -22,53 +24,32 @@ SNAPSHOTS = [
 
 def build_snapshot(data, date, split):
     cutoff = pd.Timestamp(date)
-
-    history_start = cutoff - pd.Timedelta(
-        days=LOOKBACK_DAYS
-    )
     outcome_end = cutoff + pd.Timedelta(
         days=HORIZON_DAYS
     )
 
-    # Only past purchases are used for ML features.
-    history = data.loc[
-        (data["invoice_date"] >= history_start)
-        & (data["invoice_date"] < cutoff)
-    ]
+    # Generate features using historical purchases only.
+    features = build_customer_features(
+        transactions=data,
+        as_of_date=date,
+        lookback_days=LOOKBACK_DAYS,
+    )
 
-    # Future purchases are used only for labels.
+    # Future transactions are used only to create labels.
     future_customers = data.loc[
         (data["invoice_date"] >= cutoff)
         & (data["invoice_date"] < outcome_end),
         "customer_id",
     ].unique()
 
-    if history.empty:
-        raise ValueError(f"No history for {date}")
-
-    features = history.groupby("customer_id").agg(
-        last_purchase=("invoice_date", "max"),
-        frequency_180d=("invoice", "nunique"),
-        monetary_180d=("line_revenue", "sum"),
-        quantity_180d=("quantity", "sum"),
-        active_days_180d=("purchase_date", "nunique"),
-    )
-
-    features["recency_days"] = (
-        cutoff - features["last_purchase"].dt.normalize()
-    ).dt.days
-
     features["churn_90d"] = (
-        ~features.index.isin(future_customers)
+        ~features["customer_id"].isin(future_customers)
     ).astype("int8")
 
     features["as_of_date"] = date
     features["split"] = split
 
-    return (
-        features.drop(columns=["last_purchase"])
-        .reset_index()
-    )
+    return features
 
 
 def main():
@@ -76,19 +57,21 @@ def main():
         raise FileNotFoundError(INPUT)
 
     data = pd.read_csv(
-        INPUT,
-        usecols=[
-            "customer_id",
-            "invoice",
-            "invoice_date",
-            "quantity",
-            "line_revenue",
-        ],
-        dtype={
-            "customer_id": "string",
-            "invoice": "string",
-        },
-    )
+    INPUT,
+    usecols=[
+        "customer_id",
+        "invoice",
+        "invoice_date",
+        "stock_code",
+        "quantity",
+        "line_revenue",
+    ],
+    dtype={
+        "customer_id": "string",
+        "invoice": "string",
+        "stock_code": "string",
+    },
+)
 
     data["invoice_date"] = pd.to_datetime(
         data["invoice_date"],
