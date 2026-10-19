@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import json
 from urllib import request, error
 from pathlib import Path
+import pandas as pd
 
 st.set_page_config(
     page_title="Customer Churn Intelligence",
@@ -19,9 +20,10 @@ with st.sidebar:
     page = st.radio(
         "Navigation",
         [
-            "Overview",
-            "Customer Risk Prediction",
-            "Explainable AI",
+    "Overview",
+    "Historical Analytics",
+    "Customer Risk Prediction",
+    "Explainable AI",
         ],
     )
 
@@ -86,6 +88,7 @@ if page == "Overview":
         "on the held-out test."
     )
 
+
     st.subheader("Research Summary")
 
     st.write(
@@ -97,6 +100,254 @@ if page == "Overview":
         "establish the effect of retention interventions."
     )
 
+
+elif page == "Historical Analytics":
+
+    st.title("Historical Retail Analytics")
+
+    st.info(
+        "These figures describe historical UCI Online Retail II "
+        "purchase activity, not live business performance. "
+        "Revenue uses source-data currency units, not LKR, "
+        "and excludes transactions removed during cleaning."
+    )
+
+    root = Path(__file__).resolve().parents[1]
+
+    summary_path = (
+        root / "data" / "processed"
+        / "analytics_summary.json"
+    )
+
+    if not summary_path.is_file():
+        st.warning(
+            "Analytics summary not found. "
+            "Run the analytics generation script first."
+        )
+
+    else:
+        try:
+            with summary_path.open(
+                "r", encoding="utf-8"
+            ) as file:
+                summary = json.load(file)
+
+            col1, col2, col3 = st.columns(3)
+
+            col1.metric(
+                "Historical Revenue",
+                f"{summary['total_revenue']:,.2f}",
+            )
+
+            col2.metric(
+                "Unique Customers",
+                f"{summary['unique_customers']:,}",
+            )
+
+            col3.metric(
+                "Purchase Lines",
+                f"{summary['purchase_lines']:,}",
+            )
+
+            st.divider()
+
+            st.caption(
+                f"Data period: "
+                f"{summary['first_purchase_date']} to "
+                f"{summary['last_purchase_date']}"
+            )
+
+
+            st.warning(
+                "December 2011 is incomplete: "
+                "data ends on December 9. "
+                "Do not compare it directly with full months."
+            )
+
+# Historical monthly revenue visualization
+            monthly_path = (
+                root / "data" / "processed"
+                / "analytics_monthly.csv"
+            )
+
+            st.divider()
+            st.subheader("Monthly Revenue Trend")
+
+            if monthly_path.is_file():
+                monthly = pd.read_csv(monthly_path)
+
+                # December 2011 contains only nine days.
+
+                # Exclude it from full-month comparisons.
+                complete_months = monthly.loc[
+                    monthly["month"] < "2011-12"
+                ].sort_values("month")
+
+                if complete_months.empty:
+                    st.warning(
+                        "No complete monthly data available."
+                    )
+                else:
+                    fig = go.Figure()
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=complete_months["month"],
+                            y=complete_months["revenue"],
+                            mode="lines+markers",
+                            name="Monthly Revenue",
+                            hovertemplate=(
+                                "Month: %{x}<br>"
+                                "Revenue: %{y:,.2f}"
+                                "<extra></extra>"
+                            ),
+                        )
+                    )
+
+                    fig.update_layout(
+                        title="Historical Monthly Revenue",
+                        xaxis_title="Month",
+                        yaxis_title="Revenue (source currency units)",
+                        height=450,
+                        hovermode="x unified",
+                    )
+
+                    st.plotly_chart(
+                        fig,
+                        width="stretch",
+                    )
+
+                    st.caption(
+                        "December 2011 is excluded because "
+                        "it contains only partial-month data. "
+                        "Revenue is historical, not live."
+                    )
+
+
+                    st.divider()
+                    st.subheader("Monthly Purchasing Customers")
+
+                    customer_fig = go.Figure(
+                        go.Bar(
+                            x=complete_months["month"],
+                            y=complete_months["customers"],
+                            name="Purchasing Customers",
+                            hovertemplate=(
+                                "Month: %{x}<br>"
+                                "Customers: %{y:,}"
+                                "<extra></extra>"
+                            ),
+                        )
+                    )
+
+                    customer_fig.update_layout(
+                        xaxis_title="Month",
+                        yaxis_title="Unique Purchasing Customers",
+                        height=400,
+                    )
+
+                    st.plotly_chart(
+                        customer_fig,
+                        width="stretch",
+                    )
+
+                    st.caption(
+                        "Customers are counted uniquely within "
+                        "each month. A customer may appear in "
+                        "multiple months. December 2011 is excluded."
+                    )
+
+            else:
+                st.warning(
+                    "Monthly analytics file not found. "
+                    "Run the analytics generation script."
+                )
+
+                
+            # Country-wise historical revenue analytics
+            st.divider()
+            st.subheader("Top 10 Countries by Revenue")
+
+            country_path = (
+                root / "data" / "processed"
+                / "analytics_countries.csv"
+            )
+
+            if country_path.is_file():
+                country_data = pd.read_csv(country_path)
+
+                required_columns = {"country", "revenue"}
+
+                if not required_columns.issubset(
+                    country_data.columns
+                ):
+                    raise ValueError(
+                        "Country analytics columns are missing"
+                    )
+
+                if country_data.empty:
+                    st.warning(
+                        "No country analytics available."
+                    )
+                else:
+                    top_countries = (
+                        country_data
+                        .nlargest(10, "revenue")
+                        .sort_values("revenue")
+                    )
+
+                    country_fig = go.Figure(
+                        go.Bar(
+                            x=top_countries["revenue"],
+                            y=top_countries["country"],
+                            orientation="h",
+                            name="Revenue",
+                            hovertemplate=(
+                                "Country: %{y}<br>"
+                                "Revenue: %{x:,.2f}"
+                                "<extra></extra>"
+                            ),
+                        )
+                    )
+
+                    country_fig.update_layout(
+                        xaxis_title=(
+                            "Revenue (source currency units)"
+                        ),
+                        yaxis_title="Country",
+                        height=500,
+                        margin=dict(l=100, r=30, t=30, b=60),
+                    )
+
+                    st.plotly_chart(
+                        country_fig,
+                        width="stretch",
+                    )
+
+                    st.caption(
+                        "Top 10 countries by total historical "
+                        "revenue across the available dataset. "
+                        "Totals include partial months and "
+                        "are not live business figures."
+                    )
+
+            else:
+                st.warning(
+                    "Country analytics file not found. "
+                    "Run the analytics generation script."
+                )
+
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+        ):
+            st.error(
+                "Analytics summary could not be loaded. "
+                "Regenerate the analytics reports."
+            )
 
 elif page == "Customer Risk Prediction":
 
